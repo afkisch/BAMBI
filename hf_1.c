@@ -4,6 +4,9 @@
 #include "segmentlcd_individual.h"
 #include "bsp_stk_buttons.h"
 
+#include "stdlib.h"
+#include "time.h"
+
 #define X_AXIS 0
 #define Y_AXIS 1
 
@@ -13,12 +16,17 @@
 SegmentLCD_UpperCharSegments_TypeDef upperCharSegments[SEGMENT_LCD_NUM_OF_UPPER_CHARS];
 SegmentLCD_LowerCharSegments_TypeDef lowerCharSegments[SEGMENT_LCD_NUM_OF_LOWER_CHARS];
 
+uint8_t snake[37][2] = {0};
+uint8_t length = 0;
+
+struct segment{
+	  uint8_t x;
+	  uint8_t y;
+};
+
 void delay() {
    for(int d=0;d<400000;d++);
 }
-
-uint8_t snake[37][2] = {0};
-uint8_t length = 0;
 
 void setSegment(uint8_t x, uint8_t y){
 	if(x != 14){
@@ -52,10 +60,19 @@ void clearSegment(uint8_t x, uint8_t y){
 	}
 }
 
-struct food{
-	  uint8_t x;
-	  uint8_t y;
-};
+void randomSegment(struct segment* s){
+	 //struct segment* food_ptr = &food;
+
+	s->x = rand()%15; // X-hez "igazitjuk" Y-t; Ha x paros, Y paratlan
+
+	if(!(s->x%2)){ // ha X paros
+		s->y = 2*(rand()%2)+1;
+	}else{
+		s->y = 2*(rand()%3);
+	}
+
+	setSegment(s->x, s->y);
+}
 
 int main(void)
 {
@@ -78,18 +95,20 @@ int main(void)
   snake[0][1] = y;
   length = 0;
 
- struct food a;
- a.x = 3;
- a.y = 0;
+ struct segment food;
 
- struct food prev;
+ struct segment prev;
  prev.x = x;
  prev.y = y;
 
- setSegment(a.x, a.y);
+
+ srand(time(NULL));
+
+ randomSegment(&food);
 
   /* Infinite loop */
   while (1) {
+
 	  if(!BSP_ButtonGet(0)){ // Left turn
 		  if(axis == X_AXIS){
 			  if(dir == POSITIVE){
@@ -103,11 +122,11 @@ int main(void)
 			  if(dir == POSITIVE){
 				  x -= 1;
 				  y -= 1;
-				  dir = !dir;
 			  }else{
-				  x -= 1;
+				  x += 1;
 				  y += 1;
 			  }
+			  dir = !dir;
 		  }
 		  axis = !axis;
 	  }
@@ -117,20 +136,18 @@ int main(void)
 			  if(dir == POSITIVE){
 				  x += 1;
 				  y += 1;
-				  dir = !dir;
 			  }else{
 				  x -= 1;
 				  y -= 1;
-				  dir = !dir;
 			  }
+			  dir = !dir;
 		  }else{
 			  if(dir == POSITIVE){
 				  x += 1;
 				  y -= 1;
 			  }else{
-				  x += 1;
+				  x -= 1;
 				  y += 1;
-				  dir = !dir;
 			  }
 		  }
 		  axis = !axis;
@@ -192,10 +209,12 @@ int main(void)
 	  snake[0][0] = x;
 	  snake[0][1] = y;
 
-	  if(x==a.x && y==a.y){
+	  if(x==food.x && y==food.y){
 		  length++;
 		  snake[length][0] = x;
 		  snake[length][1] = y;
+
+		  randomSegment(&food);
 	  }
 
 	  for(int i = 0; i<=length; i++){
@@ -212,5 +231,6 @@ int main(void)
 
 	  prev.x = x;
 	  prev.y = y;
+
   }
 }
