@@ -19,13 +19,15 @@ SegmentLCD_LowerCharSegments_TypeDef lowerCharSegments[SEGMENT_LCD_NUM_OF_LOWER_
 uint8_t snake[37][2] = {0};
 uint8_t length = 0;
 
+//uint8_t lcd_digit[10] = {63, 6, 91, 79, 102, 109, 125, 7, 127, 111};
+
 struct segment{
 	  uint8_t x;
 	  uint8_t y;
 };
 
 void delay() {
-   for(int d=0;d<400000;d++);
+   for(int d=0;d<150000;d++);
 }
 
 void setSegment(uint8_t x, uint8_t y){
@@ -60,8 +62,36 @@ void clearSegment(uint8_t x, uint8_t y){
 	}
 }
 
+/*void dispNumber(uint8_t number){
+	if(number > 999){
+		upperCharSegments[3].raw = lcd_digit[number/1000];
+		number %= 1000;
+	}
+	if(number > 99){
+		upperCharSegments[2].raw = lcd_digit[number/100];
+		number %= 100;
+	}
+	if(number > 9){
+		upperCharSegments[1].raw = lcd_digit[number/10];
+		number %= 10;
+	}
+	upperCharSegments[0].raw = lcd_digit[number];
+}*/
+
+void endOfGame(){
+	while(1){ // Ez igy nem jo, de Gyurcsany ezt hozta
+		for(int i = 11; i<=15; i++){	//LCD_SYMBOL_DP3
+		SegmentLCD_Symbol(i, 1);
+		}
+		delay();
+		for(int i = 11; i<=15; i++){	//LCD_SYMBOL_DP3
+			SegmentLCD_Symbol(i, 0);
+		}
+		delay();
+	}
+}
+
 void randomSegment(struct segment* s){
-	 //struct segment* food_ptr = &food;
 
 	s->x = rand()%15; // X-hez "igazitjuk" Y-t; Ha x paros, Y paratlan
 
@@ -72,6 +102,7 @@ void randomSegment(struct segment* s){
 	}
 
 	setSegment(s->x, s->y);
+	//SegmentLCD_LowerSegments(lowerCharSegments);
 }
 
 int main(void)
@@ -86,25 +117,24 @@ int main(void)
 
   BSP_ButtonsInit();
 
-  int8_t x = 1;
-  int8_t y = 0;
-  uint8_t dir = 0; // 0:negative, 1:positive
+  int8_t x;
+  int8_t y;
+  uint8_t dir = POSITIVE; // 0:negative, 1:positive
   uint8_t axis = X_AXIS; // 0:x, 1:y
 
-  snake[0][0] = x;
-  snake[0][1] = y;
-  length = 0;
-
  struct segment food;
-
+ struct segment head;
  struct segment prev;
- prev.x = x;
- prev.y = y;
 
 
- srand(time(NULL));
+ srand(time(0));
 
  randomSegment(&food);
+
+ snake[0][0] = x = head.x = 14;
+ snake[0][1] = y = head.y = 2;
+ length = 0;
+
 
   /* Infinite loop */
   while (1) {
@@ -172,13 +202,13 @@ int main(void)
 	  if(axis == X_AXIS){
 		  if(dir == POSITIVE){
 			  if(x >= 14){
-				  lowerCharSegments[x/2].raw = 0;
+				  //lowerCharSegments[x/2].raw = 0;
 				  SegmentLCD_LowerSegments(lowerCharSegments);
 				  x = 1;
 			  }
 		  }else{
 			  if(x <= 0){
-				  lowerCharSegments[x/2].raw = 0;
+				  //lowerCharSegments[x/2].raw = 0;
 				  SegmentLCD_LowerSegments(lowerCharSegments);
 				  x = 13;
 			  }
@@ -186,20 +216,22 @@ int main(void)
 	  }else{
 		  if(dir == POSITIVE){
 			  if(y <= 0){
-				  lowerCharSegments[x/2].raw = 0;
+				  //lowerCharSegments[x/2].raw = 0;
 				  SegmentLCD_LowerSegments(lowerCharSegments);
 				  y = 3;
 			  }
 		  }else{
 
 			  if(y >= 4){
-				  lowerCharSegments[x/2].raw = 0;
+				  //lowerCharSegments[x/2].raw = 0;
 				  SegmentLCD_LowerSegments(lowerCharSegments);
 				  y = 1;
 			  }
 		  }
 	  }
 
+	  prev.x = snake[length][X_AXIS];
+	  prev.y = snake[length][Y_AXIS];
 
 	  for(int i=length; i>0; i--){
 		  snake[i][X_AXIS] = snake[i-1][X_AXIS];
@@ -211,26 +243,29 @@ int main(void)
 
 	  if(x==food.x && y==food.y){
 		  length++;
-		  snake[length][0] = x;
-		  snake[length][1] = y;
+		  snake[length][X_AXIS] = prev.x;
+		  snake[length][Y_AXIS] = prev.y;
 
 		  randomSegment(&food);
 	  }
 
 	  for(int i = 0; i<=length; i++){
-		  setSegment(snake[i][0], snake[i][1]);
+		  setSegment(snake[i][X_AXIS], snake[i][Y_AXIS]);
 		  SegmentLCD_LowerSegments(lowerCharSegments);
 	  }
 
+	  SegmentLCD_Number(length+1);
 	  delay();
 
-	  for(int i = 0; i<=length; i++){
-		  clearSegment(snake[i][0], snake[i][1]);
-		  SegmentLCD_LowerSegments(lowerCharSegments);
+	  for(int i = 1; i<=length; i++){
+		  if((x == snake[i][0]) && (y == snake[i][1])){
+			  endOfGame();
+		  }
 	  }
 
-	  prev.x = x;
-	  prev.y = y;
-
+	  for(int i = 0; i<=length; i++){
+		  clearSegment(snake[i][X_AXIS], snake[i][Y_AXIS]);
+		  SegmentLCD_LowerSegments(lowerCharSegments);
+	  }
   }
 }
