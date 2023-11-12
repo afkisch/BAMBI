@@ -5,7 +5,10 @@
 #include "bsp_stk_buttons.h"
 
 #include "stdlib.h"
+#include "stdio.h"
 #include "time.h"
+
+#include "caplesense.h"
 
 #define X_AXIS 0
 #define Y_AXIS 1
@@ -13,21 +16,24 @@
 #define	NEGATIVE 0
 #define	POSITIVE 1
 
+#define LEFT 0
+#define RIGHT 1
+
 SegmentLCD_UpperCharSegments_TypeDef upperCharSegments[SEGMENT_LCD_NUM_OF_UPPER_CHARS];
 SegmentLCD_LowerCharSegments_TypeDef lowerCharSegments[SEGMENT_LCD_NUM_OF_LOWER_CHARS];
 
 uint8_t snake[37][2] = {0};
 uint8_t length = 0;
 
-//uint8_t lcd_digit[10] = {63, 6, 91, 79, 102, 109, 125, 7, 127, 111};
+uint8_t foodIsSnake = 0;
 
 struct segment{
-	  uint8_t x;
-	  uint8_t y;
+	  int8_t x;
+	  int8_t y;
 };
 
 void delay() {
-   for(int d=0;d<150000;d++);
+   for(int d=0; d<500000; d++);
 }
 
 void setSegment(uint8_t x, uint8_t y){
@@ -62,28 +68,14 @@ void clearSegment(uint8_t x, uint8_t y){
 	}
 }
 
-/*void dispNumber(uint8_t number){
-	if(number > 999){
-		upperCharSegments[3].raw = lcd_digit[number/1000];
-		number %= 1000;
-	}
-	if(number > 99){
-		upperCharSegments[2].raw = lcd_digit[number/100];
-		number %= 100;
-	}
-	if(number > 9){
-		upperCharSegments[1].raw = lcd_digit[number/10];
-		number %= 10;
-	}
-	upperCharSegments[0].raw = lcd_digit[number];
-}*/
-
 void endOfGame(){
-	while(1){ // Ez igy nem jo, de Gyurcsany ezt hozta
+	SegmentLCD_AlphaNumberOff();
+	while(1){
 		for(int i = 11; i<=15; i++){	//LCD_SYMBOL_DP3
 		SegmentLCD_Symbol(i, 1);
 		}
 		delay();
+
 		for(int i = 11; i<=15; i++){	//LCD_SYMBOL_DP3
 			SegmentLCD_Symbol(i, 0);
 		}
@@ -100,9 +92,19 @@ void randomSegment(struct segment* s){
 	}else{
 		s->y = 2*(rand()%3);
 	}
+}
 
-	setSegment(s->x, s->y);
-	//SegmentLCD_LowerSegments(lowerCharSegments);
+/* touch_turn(): check which side of the touch slider is being touched */
+/* returns -1 if not touched, 0 if touched on the left side, 1 if on the right side */
+int touch_turn()
+{
+	int touch_position = CAPLESENSE_getSliderPosition();
+	if(touch_position == -1)
+		return -1; /* in this case the snake does not turn */
+	else if(touch_position > 23)
+		return 1; /* turn right */
+	else
+		return 0; /* turn left */
 }
 
 int main(void)
@@ -115,10 +117,10 @@ int main(void)
    */
   SegmentLCD_Init(false);
 
-  BSP_ButtonsInit();
 
-  int8_t x;
-  int8_t y;
+  /* Handling the capacitive touch sensor */
+  CAPLESENSE_Init(false);
+
   uint8_t dir = POSITIVE; // 0:negative, 1:positive
   uint8_t axis = X_AXIS; // 0:x, 1:y
 
@@ -126,58 +128,59 @@ int main(void)
  struct segment head;
  struct segment prev;
 
-
- srand(time(0));
-
+ srand(1000101);
  randomSegment(&food);
+ setSegment(food.x, food.y);
 
- snake[0][0] = x = head.x = 14;
- snake[0][1] = y = head.y = 2;
+ snake[0][0] = head.x = 14;
+ snake[0][1] = head.y = 2;
  length = 0;
 
 
   /* Infinite loop */
   while (1) {
 
-	  if(!BSP_ButtonGet(0)){ // Left turn
+	  int turn = touch_turn();
+
+	  if(turn == LEFT){ // Left turn !BSP_ButtonGet(0)
 		  if(axis == X_AXIS){
 			  if(dir == POSITIVE){
-				  x += 1;
-				  y -= 1;
+				  head.x += 1;
+				  head.y -= 1;
 			  }else{
-				  x -= 1;
-				  y += 1;
+				  head.x -= 1;
+				  head.y += 1;
 			  }
 		  }else{
 			  if(dir == POSITIVE){
-				  x -= 1;
-				  y -= 1;
+				  head.x -= 1;
+				  head.y -= 1;
 			  }else{
-				  x += 1;
-				  y += 1;
+				  head.x += 1;
+				  head.y += 1;
 			  }
 			  dir = !dir;
 		  }
 		  axis = !axis;
 	  }
 
-	  else if(!BSP_ButtonGet(1)){ // Right turn
+	  else if(turn == RIGHT){ // Right turn
 		  if(axis == X_AXIS){
 			  if(dir == POSITIVE){
-				  x += 1;
-				  y += 1;
+				  head.x += 1;
+				  head.y += 1;
 			  }else{
-				  x -= 1;
-				  y -= 1;
+				  head.x -= 1;
+				  head.y -= 1;
 			  }
 			  dir = !dir;
 		  }else{
 			  if(dir == POSITIVE){
-				  x += 1;
-				  y -= 1;
+				  head.x += 1;
+				  head.y -= 1;
 			  }else{
-				  x -= 1;
-				  y += 1;
+				  head.x -= 1;
+				  head.y += 1;
 			  }
 		  }
 		  axis = !axis;
@@ -186,46 +189,37 @@ int main(void)
 	  else{
 		  if(axis == X_AXIS){
 			  if(dir == POSITIVE){
-				  x+=2;
+				  head.x += 2;
 			  }else{
-				  x-=2;
+				  head.x -= 2;
 			  }
 		  }else{
 			  if(dir == POSITIVE){
-				  y -= 2;
+				  head.y -= 2;
 			  }else{
-				  y += 2;
+				  head.y += 2;
 			  }
 		  }
 	  }
 
 	  if(axis == X_AXIS){
 		  if(dir == POSITIVE){
-			  if(x >= 14){
-				  //lowerCharSegments[x/2].raw = 0;
-				  SegmentLCD_LowerSegments(lowerCharSegments);
-				  x = 1;
+			  if(head.x > 14){
+				  head.x = 1;
 			  }
 		  }else{
-			  if(x <= 0){
-				  //lowerCharSegments[x/2].raw = 0;
-				  SegmentLCD_LowerSegments(lowerCharSegments);
-				  x = 13;
+			  if(head.x < 0){
+				  head.x = 13;
 			  }
 		  }
 	  }else{
 		  if(dir == POSITIVE){
-			  if(y <= 0){
-				  //lowerCharSegments[x/2].raw = 0;
-				  SegmentLCD_LowerSegments(lowerCharSegments);
-				  y = 3;
+			  if(head.y < 0){
+				  head.y = 3;
 			  }
 		  }else{
-
-			  if(y >= 4){
-				  //lowerCharSegments[x/2].raw = 0;
-				  SegmentLCD_LowerSegments(lowerCharSegments);
-				  y = 1;
+			  if(head.y > 4){
+				  head.y = 1;
 			  }
 		  }
 	  }
@@ -238,15 +232,27 @@ int main(void)
 		  snake[i][Y_AXIS] = snake[i-1][Y_AXIS];
 	  }
 
-	  snake[0][0] = x;
-	  snake[0][1] = y;
+	  snake[0][0] = head.x;
+	  snake[0][1] = head.y;
 
-	  if(x==food.x && y==food.y){
+	  if(head.x==food.x && head.y==food.y){
 		  length++;
 		  snake[length][X_AXIS] = prev.x;
 		  snake[length][Y_AXIS] = prev.y;
 
-		  randomSegment(&food);
+		  foodIsSnake = 1;
+
+		  while(foodIsSnake != 0){
+			  foodIsSnake = 0;
+		  	  randomSegment(&food);
+
+		  	  for(int i=0; i<=length; i++){
+		  		  if((snake[i][X_AXIS] == food.x) && (snake[i][Y_AXIS] == food.y)){
+		  			  foodIsSnake = 1;
+		  		  }
+		  	  }
+		  }
+		  setSegment(food.x, food.y);
 	  }
 
 	  for(int i = 0; i<=length; i++){
@@ -258,7 +264,7 @@ int main(void)
 	  delay();
 
 	  for(int i = 1; i<=length; i++){
-		  if((x == snake[i][0]) && (y == snake[i][1])){
+		  if((head.x == snake[i][0]) && (head.y == snake[i][1])){
 			  endOfGame();
 		  }
 	  }
